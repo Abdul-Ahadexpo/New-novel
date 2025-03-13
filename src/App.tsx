@@ -74,7 +74,7 @@ function App() {
           lastLogin: Date.now()
         });
       }
-      toast.success('Welcome to NovelVerse!');
+      toast.success('Welcome to Doro-Novel!');
     } catch (error) {
       toast.error('Login failed. Please try again.');
       console.error('Login error:', error);
@@ -204,7 +204,7 @@ function App() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
               <Book className="h-6 w-6" />
-              <span className="text-xl font-semibold">NovelVerse</span>
+              <span className="text-xl font-semibold">Doro Novel</span>
             </div>
             
             <div className="flex items-center space-x-4">
