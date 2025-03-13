@@ -4,7 +4,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { getDatabase, ref, onValue, push, remove, set } from 'firebase/database';
-import { Book, Heart, Moon, Sun, LogOut, Plus, ArrowLeft } from 'lucide-react';
+import { Book, Heart, Moon, Sun, LogOut, Plus, ArrowLeft, Edit, Trash } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyA3kVwiDyZM172-vMdlP8asqv8bE55_E_8",
@@ -34,6 +34,7 @@ function App() {
     return true;
   });
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingNovel, setEditingNovel] = useState(null);
 
   useEffect(() => {
     localStorage.setItem('darkMode', isDarkMode.toString());
@@ -85,6 +86,7 @@ function App() {
       await signOut(auth);
       toast.success('Logged out successfully');
       setCurrentView('novels');
+      setEditingNovel(null);
     } catch (error) {
       toast.error('Logout failed');
     }
@@ -102,23 +104,61 @@ function App() {
     }
 
     try {
-      const novelsRef = ref(db, 'novels');
-      await push(novelsRef, {
-        userId: user.uid,
-        userName: user.displayName,
-        userPhoto: user.photoURL,
-        title: title.trim(),
-        content: content.trim(),
-        createdAt: Date.now(),
-        chapters: [{ content: content.trim() }]
-      });
+      if (editingNovel) {
+        // Update existing novel
+        const novelRef = ref(db, `novels/${editingNovel}`);
+        await set(novelRef, {
+          userId: user.uid,
+          userName: user.displayName,
+          userPhoto: user.photoURL,
+          title: title.trim(),
+          content: content.trim(),
+          createdAt: Date.now(),
+          chapters: [{ content: content.trim() }]
+        });
+        setEditingNovel(null);
+        toast.success('Novel updated successfully!');
+      } else {
+        // Create new novel
+        const novelsRef = ref(db, 'novels');
+        await push(novelsRef, {
+          userId: user.uid,
+          userName: user.displayName,
+          userPhoto: user.photoURL,
+          title: title.trim(),
+          content: content.trim(),
+          createdAt: Date.now(),
+          chapters: [{ content: content.trim() }]
+        });
+        toast.success('Novel posted successfully!');
+      }
 
       setTitle('');
       setContent('');
       setCurrentView('novels');
-      toast.success('Novel posted successfully!');
     } catch (error) {
-      toast.error('Failed to post novel');
+      toast.error(editingNovel ? 'Failed to update novel' : 'Failed to post novel');
+    }
+  };
+
+  const handleEdit = (novel) => {
+    setTitle(novel.title);
+    setContent(novel.chapters[0].content);
+    setEditingNovel(novel.id);
+    setCurrentView('upload');
+  };
+
+  const handleDelete = async (novelId) => {
+    if (!user) return;
+
+    const confirmDelete = window.confirm('Are you sure you want to delete this novel?');
+    if (!confirmDelete) return;
+
+    try {
+      await remove(ref(db, `novels/${novelId}`));
+      toast.success('Novel deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete novel');
     }
   };
 
@@ -159,7 +199,6 @@ function App() {
         }}
       />
       
-      {/* Navigation */}
       <nav className={`border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'} sticky top-0 z-50 backdrop-blur-sm`}>
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -179,7 +218,12 @@ function App() {
               {user ? (
                 <div className="flex items-center space-x-4">
                   <button
-                    onClick={() => setCurrentView('upload')}
+                    onClick={() => {
+                      setCurrentView('upload');
+                      setEditingNovel(null);
+                      setTitle('');
+                      setContent('');
+                    }}
                     className={`p-2 rounded-full ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
                   >
                     <Plus className="h-5 w-5" />
@@ -257,15 +301,34 @@ function App() {
                   </p>
                   
                   <div className="flex items-center justify-between">
-                    <button
-                      onClick={() => handleLike(novel.id)}
-                      className={`flex items-center space-x-1 ${
-                        novel.isLiked ? 'text-red-500' : isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                      }`}
-                    >
-                      <Heart className={`h-5 w-5 ${novel.isLiked ? 'fill-current' : ''}`} />
-                      <span>{novel.likes}</span>
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleLike(novel.id)}
+                        className={`flex items-center space-x-1 ${
+                          novel.isLiked ? 'text-red-500' : isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        }`}
+                      >
+                        <Heart className={`h-5 w-5 ${novel.isLiked ? 'fill-current' : ''}`} />
+                        <span>{novel.likes}</span>
+                      </button>
+                      
+                      {user && user.uid === novel.userId && (
+                        <>
+                          <button
+                            onClick={() => handleEdit(novel)}
+                            className={`p-2 rounded-full ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}
+                          >
+                            <Edit className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(novel.id)}
+                            className={`p-2 rounded-full text-red-500 ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}
+                          >
+                            <Trash className="h-5 w-5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                     
                     <button
                       onClick={() => {
@@ -294,9 +357,14 @@ function App() {
             className={`max-w-2xl mx-auto ${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'} rounded-lg p-6`}
           >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">Write a Novel</h2>
+              <h2 className="text-2xl font-bold">{editingNovel ? 'Edit Novel' : 'Write a Novel'}</h2>
               <button
-                onClick={() => setCurrentView('novels')}
+                onClick={() => {
+                  setCurrentView('novels');
+                  setEditingNovel(null);
+                  setTitle('');
+                  setContent('');
+                }}
                 className={`p-2 rounded-full ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}
               >
                 <ArrowLeft className="h-5 w-5" />
@@ -332,7 +400,7 @@ function App() {
                   : 'bg-black text-white hover:bg-gray-800'
               }`}
             >
-              Post Novel
+              {editingNovel ? 'Update Novel' : 'Post Novel'}
             </button>
           </motion.div>
         )}
