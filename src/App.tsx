@@ -35,8 +35,8 @@ function App() {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [editingNovel, setEditingNovel] = useState(null);
-  const [newUsername, setNewUsername] = useState('');
-  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  // const [newUsername, setNewUsername] = useState('');
+  // const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [chapters, setChapters] = useState([{ content: '' }]);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
 
@@ -112,32 +112,32 @@ function App() {
     }
   };
 
-  const handleUpdateUsername = async () => {
-    if (!newUsername.trim()) {
-      toast.error('Please enter a valid username');
-      return;
-    }
+  // const handleUpdateUsername = async () => {
+  //   if (!newUsername.trim()) {
+  //     toast.error('Please enter a valid username');
+  //     return;
+  //   }
 
-    try {
-      await updateProfile(auth.currentUser, {
-        displayName: newUsername
-      });
+  //   try {
+  //     await updateProfile(auth.currentUser, {
+  //       displayName: newUsername
+  //     });
 
-      // Update username in all user's novels
-      const userNovels = novels.filter(novel => novel.userId === user.uid);
-      const updates = {};
-      userNovels.forEach(novel => {
-        updates[`novels/${novel.id}/userName`] = newUsername;
-      });
-      await set(ref(db), updates);
+  //     // Update username in all user's novels
+  //     const userNovels = novels.filter(novel => novel.userId === user.uid);
+  //     const updates = {};
+  //     userNovels.forEach(novel => {
+  //       updates[`novels/${novel.id}/userName`] = newUsername;
+  //     });
+  //     await set(ref(db), updates);
 
-      setIsEditingUsername(false);
-      setNewUsername('');
-      toast.success('Username updated successfully!');
-    } catch (error) {
-      toast.error('Failed to update username');
-    }
-  };
+  //     setIsEditingUsername(false);
+  //     setNewUsername('');
+  //     toast.success('Username updated successfully!');
+  //   } catch (error) {
+  //     toast.error('Failed to update username');
+  //   }
+  // };
 
   const handleShare = (novelId) => {
     const shareUrl = `${window.location.origin}${window.location.pathname}?novel=${novelId}`;
@@ -310,7 +310,7 @@ function App() {
                         className="h-8 w-8 rounded-full cursor-pointer"
                         onClick={() => setIsEditingUsername(!isEditingUsername)}
                       />
-                      {isEditingUsername && (
+{/*                       {isEditingUsername && (
                         <div className={`absolute right-0 mt-2 w-64 p-4 rounded-lg shadow-lg ${
                           isDarkMode ? 'bg-gray-800' : 'bg-white'
                         }`}>
@@ -330,7 +330,7 @@ function App() {
                             Update Username
                           </button>
                         </div>
-                      )}
+                      )} */}
                     </div>
                     <button
                       onClick={handleLogout}
