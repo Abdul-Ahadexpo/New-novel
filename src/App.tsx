@@ -570,32 +570,54 @@ function App() {
               </p>
             </div>
 
-            {selectedNovel.chapters && selectedNovel.chapters.length > 1 && (
-              <div className="mb-6 flex space-x-4">
-                <button
-                  onClick={() => setCurrentChapterIndex(Math.max(0, currentChapterIndex - 1))}
-                  disabled={currentChapterIndex === 0}
-                  className={`px-4 py-2 rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-800 hover:bg-gray-700' 
-                      : 'bg-gray-200 hover:bg-gray-300'
-                  } ${currentChapterIndex === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  Previous Chapter
-                </button>
-                <button
-                  onClick={() => setCurrentChapterIndex(Math.min(selectedNovel.chapters.length - 1, currentChapterIndex + 1))}
-                  disabled={currentChapterIndex === selectedNovel.chapters.length - 1}
-                  className={`px-4 py-2 rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-800 hover:bg-gray-700' 
-                      : 'bg-gray-200 hover:bg-gray-300'
-                  } ${currentChapterIndex === selectedNovel.chapters.length - 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  Next Chapter
-                </button>
-              </div>
-            )}
+
+
+
+
+
+
+            <div className={`prose max-w-none ${isDarkMode ? 'prose-invert' : ''}`}>
+  <h3 className="text-xl font-semibold mb-4">Chapter {currentChapterIndex + 1}</h3>
+  <p className="whitespace-pre-wrap leading-relaxed">
+    {(selectedNovel.chapters?.[currentChapterIndex]?.content) || selectedNovel.content}
+  </p>
+</div>
+
+{selectedNovel.chapters && selectedNovel.chapters.length > 1 && (
+  <div className="mt-6 flex space-x-4">
+    <button
+      onClick={() => setCurrentChapterIndex(Math.max(0, currentChapterIndex - 1))}
+      disabled={currentChapterIndex === 0}
+      className={`px-4 py-2 rounded-lg ${
+        isDarkMode 
+          ? 'bg-gray-800 hover:bg-gray-700' 
+          : 'bg-gray-200 hover:bg-gray-300'
+      } ${currentChapterIndex === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+    >
+      Previous Chapter
+    </button>
+    <button
+      onClick={() => setCurrentChapterIndex(Math.min(selectedNovel.chapters.length - 1, currentChapterIndex + 1))}
+      disabled={currentChapterIndex === selectedNovel.chapters.length - 1}
+      className={`px-4 py-2 rounded-lg ${
+        isDarkMode 
+          ? 'bg-gray-800 hover:bg-gray-700' 
+          : 'bg-gray-200 hover:bg-gray-300'
+      } ${currentChapterIndex === selectedNovel.chapters.length - 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+    >
+      Next Chapter
+    </button>
+  </div>
+)}
+
+
+
+
+
+
+
+
+
             
             <div className={`prose max-w-none ${isDarkMode ? 'prose-invert' : ''}`}>
               <h3 className="text-xl font-semibold mb-4">Chapter {currentChapterIndex + 1}</h3>
