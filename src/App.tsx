@@ -4,7 +4,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, updateProfile } from 'firebase/auth';
 import { getDatabase, ref, onValue, push, remove, set, get } from 'firebase/database';
-import { Book, Heart, Moon, Sun, LogOut, Plus, ArrowLeft, Edit, Trash, Share2, FolderEdit as UserEdit } from 'lucide-react';
+import { Book, Heart, Moon, Sun, LogOut, Plus, ArrowLeft, Edit, Trash, Share2, FolderEdit as UserEdit, Shield, Download, Upload } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyA3kVwiDyZM172-vMdlP8asqv8bE55_E_8",
@@ -35,10 +35,13 @@ function App() {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [editingNovel, setEditingNovel] = useState(null);
-  // const [newUsername, setNewUsername] = useState('');
-  // const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [chapters, setChapters] = useState([{ content: '' }]);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
 
   // Check for shared novel ID in URL
   useEffect(() => {
@@ -66,6 +69,7 @@ function App() {
       setUser(user);
     });
 
+    // Load novels for everyone (including guests)
     const novelsRef = ref(db, 'novels');
     onValue(novelsRef, (snapshot) => {
       const data = snapshot.val();
@@ -107,37 +111,144 @@ function App() {
       toast.success('Logged out successfully');
       setCurrentView('novels');
       setEditingNovel(null);
+      setIsAdmin(false);
     } catch (error) {
       toast.error('Logout failed');
     }
   };
 
-  // const handleUpdateUsername = async () => {
-  //   if (!newUsername.trim()) {
-  //     toast.error('Please enter a valid username');
-  //     return;
-  //   }
+  const handleAdminLogin = () => {
+    if (adminPassword === 'Niharuja1829') {
+      setIsAdmin(true);
+      setShowAdminLogin(false);
+      setAdminPassword('');
+      toast.success('Admin access granted');
+    } else {
+      toast.error('Invalid admin password');
+      setAdminPassword('');
+    }
+  };
 
-  //   try {
-  //     await updateProfile(auth.currentUser, {
-  //       displayName: newUsername
-  //     });
+  const exportData = async () => {
+    try {
+      // Get all novels
+      const novelsSnapshot = await get(ref(db, 'novels'));
+      const novelsData = novelsSnapshot.val() || {};
 
-  //     // Update username in all user's novels
-  //     const userNovels = novels.filter(novel => novel.userId === user.uid);
-  //     const updates = {};
-  //     userNovels.forEach(novel => {
-  //       updates[`novels/${novel.id}/userName`] = newUsername;
-  //     });
-  //     await set(ref(db), updates);
+      // Get all users
+      const usersSnapshot = await get(ref(db, 'users'));
+      const usersData = usersSnapshot.val() || {};
 
-  //     setIsEditingUsername(false);
-  //     setNewUsername('');
-  //     toast.success('Username updated successfully!');
-  //   } catch (error) {
-  //     toast.error('Failed to update username');
-  //   }
-  // };
+      // Get all comments (if they exist)
+      const commentsSnapshot = await get(ref(db, 'comments'));
+      const commentsData = commentsSnapshot.val() || {};
+
+      const exportData = {
+        novels: novelsData,
+        users: usersData,
+        comments: commentsData,
+        exportDate: new Date().toISOString(),
+        version: '1.0'
+      };
+
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `novelverse-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success('Data exported successfully!');
+    } catch (error) {
+      toast.error('Failed to export data');
+      console.error('Export error:', error);
+    }
+  };
+
+  const importData = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const importedData = JSON.parse(e.target.result);
+        
+        // Validate data structure
+        if (!importedData.novels || !importedData.users) {
+          toast.error('Invalid backup file format');
+          return;
+        }
+
+        const confirmImport = window.confirm(
+          'This will overwrite all existing data. Are you sure you want to continue?'
+        );
+        
+        if (!confirmImport) return;
+
+        // Import novels
+        if (importedData.novels) {
+          await set(ref(db, 'novels'), importedData.novels);
+        }
+
+        // Import users
+        if (importedData.users) {
+          await set(ref(db, 'users'), importedData.users);
+        }
+
+        // Import comments if they exist
+        if (importedData.comments) {
+          await set(ref(db, 'comments'), importedData.comments);
+        }
+
+        toast.success('Data imported successfully!');
+        
+        // Refresh the page to show imported data
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+
+      } catch (error) {
+        toast.error('Failed to import data. Please check the file format.');
+        console.error('Import error:', error);
+      }
+    };
+    
+    reader.readAsText(file);
+    event.target.value = ''; // Reset file input
+  };
+
+  const handleUpdateUsername = async () => {
+    if (!newUsername.trim()) {
+      toast.error('Please enter a valid username');
+      return;
+    }
+
+    try {
+      await updateProfile(auth.currentUser, {
+        displayName: newUsername
+      });
+
+      // Update username in all user's novels
+      const userNovels = novels.filter(novel => novel.userId === user.uid);
+      const updates = {};
+      userNovels.forEach(novel => {
+        updates[`novels/${novel.id}/userName`] = newUsername;
+      });
+      await set(ref(db), updates);
+
+      setIsEditingUsername(false);
+      setNewUsername('');
+      toast.success('Username updated successfully!');
+    } catch (error) {
+      toast.error('Failed to update username');
+    }
+  };
 
   const handleShare = (novelId) => {
     const shareUrl = `${window.location.origin}${window.location.pathname}?novel=${novelId}`;
@@ -289,6 +400,14 @@ function App() {
                 {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </button>
 
+              <button
+                onClick={() => setShowAdminLogin(true)}
+                className={`p-2 rounded-full ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
+                title="Admin Panel"
+              >
+                <Shield className="h-5 w-5" />
+              </button>
+
               {user ? (
                 <div className="flex items-center space-x-4">
                   <button
@@ -310,7 +429,7 @@ function App() {
                         className="h-8 w-8 rounded-full cursor-pointer"
                         onClick={() => setIsEditingUsername(!isEditingUsername)}
                       />
-{/*                       {isEditingUsername && (
+                      {isEditingUsername && (
                         <div className={`absolute right-0 mt-2 w-64 p-4 rounded-lg shadow-lg ${
                           isDarkMode ? 'bg-gray-800' : 'bg-white'
                         }`}>
@@ -330,7 +449,7 @@ function App() {
                             Update Username
                           </button>
                         </div>
-                      )} */}
+                      )}
                     </div>
                     <button
                       onClick={handleLogout}
@@ -355,6 +474,80 @@ function App() {
         </div>
       </nav>
 
+      {/* Admin Login Modal */}
+      {showAdminLogin && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} w-96`}>
+            <h3 className="text-lg font-semibold mb-4">Admin Login</h3>
+            <input
+              type="password"
+              placeholder="Enter admin password"
+              value={adminPassword}
+              onChange={(e) => setAdminPassword(e.target.value)}
+              className={`w-full px-3 py-2 rounded-lg mb-4 ${
+                isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+              }`}
+              onKeyPress={(e) => e.key === 'Enter' && handleAdminLogin()}
+            />
+            <div className="flex space-x-2">
+              <button
+                onClick={handleAdminLogin}
+                className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg"
+              >
+                Login
+              </button>
+              <button
+                onClick={() => {
+                  setShowAdminLogin(false);
+                  setAdminPassword('');
+                }}
+                className={`flex-1 px-4 py-2 rounded-lg ${
+                  isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                }`}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Panel */}
+      {isAdmin && (
+        <div className={`border-b ${isDarkMode ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-gray-100'} p-4`}>
+          <div className="max-w-5xl mx-auto">
+            <h3 className="text-lg font-semibold mb-4">Admin Panel</h3>
+            <div className="flex space-x-4">
+              <button
+                onClick={exportData}
+                className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg"
+              >
+                <Download className="h-4 w-4" />
+                <span>Export Data</span>
+              </button>
+              <label className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg cursor-pointer">
+                <Upload className="h-4 w-4" />
+                <span>Import Data</span>
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={importData}
+                  className="hidden"
+                />
+              </label>
+              <button
+                onClick={() => setIsAdmin(false)}
+                className={`px-4 py-2 rounded-lg ${
+                  isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                }`}
+              >
+                Exit Admin
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {currentView === 'novels' && (
           <div className="space-y-6">
@@ -369,6 +562,13 @@ function App() {
                   : 'bg-gray-100 border-gray-200 focus:border-gray-300'
               } border focus:outline-none`}
             />
+
+            {!user && (
+              <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'} text-center`}>
+                <p className="mb-2">Welcome to NovelVerse! You can read all novels as a guest.</p>
+                <p className="text-sm opacity-75">Login to like novels and post your own stories.</p>
+              </div>
+            )}
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-1">
               {filteredNovels.map((novel) => (
@@ -405,6 +605,7 @@ function App() {
                         className={`flex items-center space-x-1 ${
                           novel.isLiked ? 'text-red-500' : isDarkMode ? 'text-gray-400' : 'text-gray-600'
                         }`}
+                        disabled={!user}
                       >
                         <Heart className={`h-5 w-5 ${novel.isLiked ? 'fill-current' : ''}`} />
                         <span>{novel.likes}</span>
@@ -456,7 +657,7 @@ function App() {
           </div>
         )}
 
-        {currentView === 'upload' && (
+        {currentView === 'upload' && user && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
