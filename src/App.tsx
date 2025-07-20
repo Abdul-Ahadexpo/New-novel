@@ -484,7 +484,7 @@ function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            className="fixed inset-0 bg-black bg-opacity-50 z-[60]"
             onClick={() => setIsMenuOpen(false)}
           >
             <motion.div
@@ -493,7 +493,7 @@ function App() {
               exit={{ x: '100%' }}
               className={`absolute right-0 top-0 h-full w-80 ${
                 isDarkMode ? 'bg-black border-gray-800' : 'bg-white border-gray-200'
-              } border-l shadow-lg p-6`}
+              } border-l shadow-lg p-6 z-[70]`}
               onClick={(e) => e.stopPropagation()}
             >
               {user ? (
