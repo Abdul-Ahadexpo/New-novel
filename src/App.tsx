@@ -166,7 +166,7 @@ function App() {
   };
 
   const handleAdminLogin = () => {
-    if (adminPassword === 'Niharuja1829') {
+    if (adminPassword === 'Niharuka1829') {
       setIsAdmin(true);
       setShowAdminLogin(false);
       setAdminPassword('');
