@@ -47,22 +47,51 @@ function App() {
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
-  // Check for shared novel ID in URL
+  // Handle URL routing and shared novels
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const sharedNovelId = params.get('novel');
-    if (sharedNovelId) {
-      const novelRef = ref(db, `novels/${sharedNovelId}`);
-      get(novelRef).then((snapshot) => {
-        if (snapshot.exists()) {
-          const novel = { id: sharedNovelId, ...snapshot.val() };
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Handle novel routing
+  useEffect(() => {
+    if (currentPath.startsWith('/novel/')) {
+      const novelId = currentPath.split('/novel/')[1];
+      if (novelId && novels.length > 0) {
+        const novel = novels.find(n => n.id === novelId);
+        if (novel) {
           setSelectedNovel(novel);
           setCurrentView('chapter');
+          setCurrentChapterIndex(0);
+        } else {
+          // Novel not found, redirect to home
+          window.history.pushState({}, '', '/');
+          setCurrentPath('/');
+          setCurrentView('novels');
         }
-      });
+      }
+    } else {
+      setCurrentView('novels');
+      setSelectedNovel(null);
     }
-  }, []);
+  }, [currentPath, novels]);
+
+  const navigateToNovel = (novelId) => {
+    const newPath = `/novel/${novelId}`;
+    window.history.pushState({}, '', newPath);
+    setCurrentPath(newPath);
+  };
+
+  const navigateToHome = () => {
+    window.history.pushState({}, '', '/');
+    setCurrentPath('/');
+  };
 
   useEffect(() => {
     localStorage.setItem('darkMode', isDarkMode.toString());
@@ -156,7 +185,7 @@ function App() {
     try {
       await signOut(auth);
       toast.success('Logged out successfully');
-      setCurrentView('novels');
+      navigateToHome();
       setEditingNovel(null);
       setIsAdmin(false);
       setIsMenuOpen(false);
@@ -290,9 +319,37 @@ function App() {
   };
 
   const handleShare = (novelId) => {
-    const shareUrl = `${window.location.origin}${window.location.pathname}?novel=${novelId}`;
-    navigator.clipboard.writeText(shareUrl);
-    toast.success('Share link copied to clipboard!');
+    const shareUrl = `${window.location.origin}/novel/${novelId}`;
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        toast.success('Share link copied to clipboard!');
+      }).catch(() => {
+        fallbackCopyTextToClipboard(shareUrl);
+      });
+    } else {
+      fallbackCopyTextToClipboard(shareUrl);
+    }
+  };
+
+  const fallbackCopyTextToClipboard = (text) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+      document.execCommand('copy');
+      toast.success('Share link copied to clipboard!');
+    } catch (err) {
+      toast.error('Failed to copy link');
+    }
+    
+    document.body.removeChild(textArea);
   };
 
   const handlePostNovel = async () => {
@@ -513,6 +570,7 @@ function App() {
                   
                   <button
                     onClick={() => {
+                      navigateToHome();
                       setCurrentView('upload');
                       setEditingNovel(null);
                       setTitle('');
@@ -696,6 +754,7 @@ function App() {
                 {user && (
                   <button
                     onClick={() => {
+                      navigateToHome();
                       setCurrentView('upload');
                       setEditingNovel(null);
                       setTitle('');
@@ -719,9 +778,7 @@ function App() {
                     whileHover={{ scale: 1.05 }}
                     className="cursor-pointer"
                     onClick={() => {
-                      setSelectedNovel(novel);
-                      setCurrentView('chapter');
-                      setCurrentChapterIndex(0);
+                      navigateToNovel(novel.id);
                     }}
                   >
                     <div className="aspect-[3/4] rounded-lg overflow-hidden mb-2">
@@ -802,6 +859,7 @@ function App() {
                   {user && (
                     <button
                       onClick={() => {
+                        navigateToHome();
                         setCurrentView('upload');
                         setEditingNovel(null);
                         setTitle('');
@@ -951,9 +1009,7 @@ function App() {
           >
             <button
               onClick={() => {
-                setCurrentView('novels');
-                setSelectedNovel(null);
-                setCurrentChapterIndex(0);
+                navigateToHome();
               }}
               className={`flex items-center mb-6 ${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-black'}`}
             >
