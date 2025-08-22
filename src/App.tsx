@@ -50,6 +50,49 @@ function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [showLinkHelper, setShowLinkHelper] = useState(false);
 
+  // Local storage for bookmarks and reading history
+  const [bookmarkedNovels, setBookmarkedNovels] = useState(() => {
+    try {
+      const saved = localStorage.getItem('bookmarkedNovels');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [readingHistory, setReadingHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem('readingHistory');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Bookmark functions
+  const isNovelBookmarked = (novelId) => {
+    return bookmarkedNovels.some(bookmark => bookmark.novelId === novelId);
+  };
+
+  const toggleBookmark = (novel) => {
+    const isBookmarked = isNovelBookmarked(novel.id);
+    
+    if (isBookmarked) {
+      setBookmarkedNovels(prev => prev.filter(bookmark => bookmark.novelId !== novel.id));
+      toast.success('Removed from bookmarks');
+    } else {
+      const bookmark = {
+        novelId: novel.id,
+        novelTitle: novel.title,
+        coverImage: novel.coverImage,
+        userName: novel.userName,
+        bookmarkedAt: Date.now()
+      };
+      setBookmarkedNovels(prev => [bookmark, ...prev]);
+      toast.success('Added to bookmarks');
+    }
+  };
+
   // Handle URL routing and shared novels
   useEffect(() => {
     const handlePopState = () => {
@@ -82,6 +125,36 @@ function App() {
       setSelectedNovel(null);
     }
   }, [currentPath, novels]);
+
+  // Save bookmarks to localStorage
+  useEffect(() => {
+    localStorage.setItem('bookmarkedNovels', JSON.stringify(bookmarkedNovels));
+  }, [bookmarkedNovels]);
+
+  // Save reading history to localStorage
+  useEffect(() => {
+    localStorage.setItem('readingHistory', JSON.stringify(readingHistory));
+  }, [readingHistory]);
+
+  // Update reading history when viewing a chapter
+  useEffect(() => {
+    if (currentView === 'chapter' && selectedNovel) {
+      const historyEntry = {
+        novelId: selectedNovel.id,
+        novelTitle: selectedNovel.title,
+        coverImage: selectedNovel.coverImage,
+        userName: selectedNovel.userName,
+        currentChapter: currentChapterIndex,
+        totalChapters: selectedNovel.chapters ? selectedNovel.chapters.length : 1,
+        lastRead: Date.now()
+      };
+      
+      setReadingHistory(prev => ({
+        ...prev,
+        [selectedNovel.id]: historyEntry
+      }));
+    }
+  }, [currentView, selectedNovel, currentChapterIndex]);
 
   const navigateToNovel = (novelId) => {
     const newPath = `/novel/${novelId}`;
@@ -1238,6 +1311,18 @@ function App() {
                   >
                     <Share2 className="h-5 w-5" />
                     <span>Share</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => toggleBookmark(selectedNovel)}
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg border ${
+                      isNovelBookmarked(selectedNovel.id) 
+                        ? 'bg-yellow-500 text-white border-yellow-500' 
+                        : isDarkMode ? 'border-gray-700 hover:bg-gray-800' : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Book className={`h-5 w-5 ${isNovelBookmarked(selectedNovel.id) ? 'fill-current' : ''}`} />
+                    <span>{isNovelBookmarked(selectedNovel.id) ? 'Bookmarked' : 'Bookmark'}</span>
                   </button>
                 </div>
               </div>
