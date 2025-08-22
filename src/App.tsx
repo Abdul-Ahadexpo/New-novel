@@ -4,7 +4,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, updateProfile } from 'firebase/auth';
 import { getDatabase, ref, onValue, push, remove, set, get } from 'firebase/database';
-import { Book, Heart, Moon, Sun, LogOut, Plus, ArrowLeft, Edit, Trash, Share2, FolderEdit as UserEdit, Shield, Download, Upload, Search, Menu, X, Image as ImageIcon } from 'lucide-react';
+import { Book, Heart, Moon, Sun, LogOut, Plus, ArrowLeft, Edit, Trash, Share2, FolderEdit as UserEdit, Shield, Download, Upload, Search, Menu, X, Image as ImageIcon, Link as LinkIcon } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyA3kVwiDyZM172-vMdlP8asqv8bE55_E_8",
@@ -48,6 +48,7 @@ function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  const [showLinkHelper, setShowLinkHelper] = useState(false);
 
   // Handle URL routing and shared novels
   useEffect(() => {
@@ -292,6 +293,93 @@ function App() {
     event.target.value = '';
   };
 
+  // Function to convert URLs in text to clickable links
+  const linkifyText = (text) => {
+    if (!text) return '';
+    
+    // Regular expression to match URLs and markdown-style links
+    const urlRegex = /(\[([^\]]+)\]\(([^)]+)\))|((https?:\/\/[^\s]+))/g;
+    
+    return text.split('\n').map((line, lineIndex) => {
+      const parts = [];
+      let lastIndex = 0;
+      let match;
+      
+      while ((match = urlRegex.exec(line)) !== null) {
+        // Add text before the match
+        if (match.index > lastIndex) {
+          parts.push(line.slice(lastIndex, match.index));
+        }
+        
+        if (match[1]) {
+          // Markdown-style link [text](url)
+          const linkText = match[2];
+          const linkUrl = match[3];
+          parts.push(
+            <a
+              key={`${lineIndex}-${match.index}`}
+              href={linkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:text-blue-600 underline"
+            >
+              {linkText}
+            </a>
+          );
+        } else if (match[4]) {
+          // Plain URL
+          const url = match[4];
+          parts.push(
+            <a
+              key={`${lineIndex}-${match.index}`}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:text-blue-600 underline"
+            >
+              {url}
+            </a>
+          );
+        }
+        
+        lastIndex = match.index + match[0].length;
+      }
+      
+      // Add remaining text
+      if (lastIndex < line.length) {
+        parts.push(line.slice(lastIndex));
+      }
+      
+      return (
+        <span key={lineIndex}>
+          {parts}
+          {lineIndex < text.split('\n').length - 1 && <br />}
+        </span>
+      );
+    });
+  };
+
+  const insertLinkAtCursor = (textareaRef, linkText, linkUrl) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const markdownLink = `[${linkText}](${linkUrl})`;
+    
+    const newValue = textarea.value.substring(0, start) + markdownLink + textarea.value.substring(end);
+    
+    // Update the chapter content
+    const chapterIndex = parseInt(textarea.dataset.chapterIndex);
+    updateChapter(chapterIndex, newValue);
+    
+    // Focus back to textarea and set cursor position
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + markdownLink.length, start + markdownLink.length);
+    }, 0);
+  };
+
   const handleUpdateUsername = async () => {
     if (!newUsername.trim()) {
       toast.error('Please enter a valid username');
@@ -303,18 +391,30 @@ function App() {
         displayName: newUsername
       });
 
-      const userNovels = novels.filter(novel => novel.userId === user.uid);
-      const updates = {};
-      userNovels.forEach(novel => {
-        updates[`novels/${novel.id}/userName`] = newUsername;
+      // Update user's profile in the users collection
+      const userRef = ref(db, `users/${user.uid}`);
+      const userSnapshot = await get(userRef);
+      const existingUserData = userSnapshot.val() || {};
+      
+      await set(userRef, {
+        ...existingUserData,
+        name: newUsername,
+        lastUpdated: Date.now()
       });
-      await set(ref(db), updates);
+
+      // Update only the userName field in user's novels
+      const userNovels = novels.filter(novel => novel.userId === user.uid);
+      for (const novel of userNovels) {
+        const novelRef = ref(db, `novels/${novel.id}/userName`);
+        await set(novelRef, newUsername);
+      }
 
       setIsEditingUsername(false);
       setNewUsername('');
       toast.success('Username updated successfully!');
     } catch (error) {
       toast.error('Failed to update username');
+      console.error('Username update error:', error);
     }
   };
 
@@ -464,6 +564,8 @@ function App() {
       setChapters(newChapters);
     }
   };
+
+  const textareaRefs = React.useRef([]);
 
   const filteredNovels = novels.filter(novel => 
     novel.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -958,16 +1060,91 @@ function App() {
               <div key={index} className="mb-4">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-lg font-semibold">Chapter {index + 1}</h3>
-                  {chapters.length > 1 && (
+                  <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => removeChapter(index)}
-                      className="text-red-500 hover:text-red-600"
+                      onClick={() => setShowLinkHelper(showLinkHelper === index ? null : index)}
+                      className={`p-1 rounded ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}
+                      title="Add Link"
                     >
-                      <Trash className="h-4 w-4" />
+                      <LinkIcon className="h-4 w-4" />
                     </button>
-                  )}
+                    {chapters.length > 1 && (
+                      <button
+                        onClick={() => removeChapter(index)}
+                        className="text-red-500 hover:text-red-600"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
+                
+                {showLinkHelper === index && (
+                  <div className={`mb-4 p-4 rounded-lg border ${
+                    isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
+                  }`}>
+                    <h4 className="text-sm font-semibold mb-2">Add Clickable Link</h4>
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        placeholder="Link text (what readers will see)"
+                        className={`w-full px-3 py-2 text-sm rounded border ${
+                          isDarkMode ? 'bg-gray-900 border-gray-600' : 'bg-white border-gray-300'
+                        }`}
+                        id={`linkText-${index}`}
+                      />
+                      <input
+                        type="url"
+                        placeholder="URL (https://example.com)"
+                        className={`w-full px-3 py-2 text-sm rounded border ${
+                          isDarkMode ? 'bg-gray-900 border-gray-600' : 'bg-white border-gray-300'
+                        }`}
+                        id={`linkUrl-${index}`}
+                      />
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => {
+                            const linkText = document.getElementById(`linkText-${index}`).value;
+                            const linkUrl = document.getElementById(`linkUrl-${index}`).value;
+                            if (linkText && linkUrl) {
+                              insertLinkAtCursor(textareaRefs.current[index], linkText, linkUrl);
+                              document.getElementById(`linkText-${index}`).value = '';
+                              document.getElementById(`linkUrl-${index}`).value = '';
+                              setShowLinkHelper(null);
+                            } else {
+                              toast.error('Please fill in both link text and URL');
+                            }
+                          }}
+                          className={`px-3 py-1 text-sm rounded ${
+                            isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+                          }`}
+                        >
+                          Insert Link
+                        </button>
+                        <button
+                          onClick={() => setShowLinkHelper(null)}
+                          className="px-3 py-1 text-sm rounded border border-gray-400 hover:bg-gray-100"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xs opacity-75">
+                      <p>Tip: You can also type links directly in your text:</p>
+                      <p>• Plain URLs: https://example.com</p>
+                      <p>• Custom text: [Click here](https://example.com)</p>
+                    </div>
+                  </div>
+                )}
+                
                 <textarea
+                  ref={(el) => {
+                    if (!textareaRefs.current[index]) {
+                      textareaRefs.current[index] = React.createRef();
+                    }
+                    textareaRefs.current[index].current = el;
+                    if (el) el.dataset.chapterIndex = index;
+                  }}
                   value={chapter.content}
                   onChange={(e) => updateChapter(index, e.target.value)}
                   placeholder={`Write Chapter ${index + 1}...`}
@@ -1096,8 +1273,8 @@ function App() {
             
             <div className="prose prose-lg max-w-none">
               <h3 className="text-xl font-semibold mb-4">Chapter {currentChapterIndex + 1}</h3>
-              <div className="whitespace-pre-wrap leading-relaxed text-lg">
-                {(selectedNovel.chapters?.[currentChapterIndex]?.content) || selectedNovel.content}
+              <div className="leading-relaxed text-lg">
+                {linkifyText((selectedNovel.chapters?.[currentChapterIndex]?.content) || selectedNovel.content)}
               </div>
             </div>
           </motion.div>
