@@ -4,7 +4,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, updateProfile } from 'firebase/auth';
 import { getDatabase, ref, onValue, push, remove, set, get } from 'firebase/database';
-import { Book, Heart, Moon, Sun, LogOut, Plus, ArrowLeft, Edit, Trash, Share2, FolderEdit as UserEdit, Shield, Download, Upload, Search, Menu, X, Image as ImageIcon, Link as LinkIcon } from 'lucide-react';
+import { Book, Heart, Moon, Sun, LogOut, Plus, ArrowLeft, Edit, Trash, Share2, FolderEdit as UserEdit, Shield, Download, Upload, Search, Menu, X, Image as ImageIcon, Link as LinkIcon, BookOpen } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyA3kVwiDyZM172-vMdlP8asqv8bE55_E_8",
@@ -1363,6 +1363,95 @@ function App() {
               </div>
             </div>
           </motion.div>
+        )}
+
+        {currentView === 'profile' && (
+          <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+            <div className="max-w-4xl mx-auto px-4">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                    <Heart className="w-6 h-6 mr-2 text-red-500" />
+                    My Bookmarked Novels
+                  </h1>
+                  <button
+                    onClick={() => setCurrentView('home')}
+                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                {bookmarkedNovels.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Heart className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                      No bookmarked novels yet
+                    </h3>
+                    <p className="text-gray-500 dark:text-gray-400">
+                      Start bookmarking novels you love to see them here!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {bookmarkedNovels.map((bookmark) => {
+                      const novel = novels.find(n => n.id === bookmark.novelId);
+                      if (!novel) return null;
+                      
+                      return (
+                        <div key={bookmark.novelId} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <div className="flex justify-between items-start mb-3">
+                            <h3 
+                              className="font-semibold text-gray-900 dark:text-white cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 line-clamp-2"
+                              onClick={() => {
+                                setCurrentView('novel');
+                                setCurrentNovel(bookmark.novelId);
+                                setCurrentChapter(0);
+                                updateReadingHistory(bookmark.novelId, 0);
+                              }}
+                            >
+                              {novel.title}
+                            </h3>
+                            <button
+                              onClick={() => toggleBookmark(bookmark.novelId)}
+                              className="text-yellow-500 hover:text-yellow-600 transition-colors"
+                            >
+                              <BookOpen className="w-5 h-5" />
+                            </button>
+                          </div>
+                          
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                            by {novel.userName}
+                          </p>
+                          
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                            Bookmarked on {new Date(bookmark.bookmarkedAt).toLocaleDateString()}
+                          </p>
+                          
+                          <div className="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
+                            <span>{novel.chapters.length} chapters</span>
+                            <span>{novel.likes} likes</span>
+                          </div>
+                          
+                          <button
+                            onClick={() => {
+                              setCurrentView('novel');
+                              setCurrentNovel(bookmark.novelId);
+                              setCurrentChapter(0);
+                              updateReadingHistory(bookmark.novelId, 0);
+                            }}
+                            className="w-full mt-3 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                          >
+                            Read Novel
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </div>
